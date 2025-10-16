@@ -1,115 +1,119 @@
-# Smart Interview Platform - API Endpoints
+# Smart Interview Platform
 
-This document lists the HTTP endpoints exposed by the Smart Interview Platform backend, their HTTP method, URL, and access rules.
+Documentation and setup instructions for the Smart Interview Platform backend.
 
-Base URL (when running locally):
+This Spring Boot application provides a backend for an interview practice platform with users, questions, code submissions, and leaderboards.
 
-- http://localhost:8080
+Highlights
+- Spring Boot (3.5.x)
+- Spring Security with JWT authentication
+- Spring Data JPA + MySQL
+- OpenAPI (springdoc) for documentation
 
-Authentication:
+Contents
+- Overview
+- Requirements
+- Setup & run
+- Database
+- Authentication
+- API endpoints (summary + quick list)
+- Project structure
+- Notes & caveats
 
-- The application uses JWT Bearer tokens for authentication. Obtain a token from `POST /auth/login` and include it on protected requests in the `Authorization` header as:
+Overview
+--------
+This repository implements a basic interview-prep platform backend. Main features:
 
-  Authorization: Bearer <token>
+- User registration and authentication (JWT)
+- CRUD for programming questions (admin)
+- Code submissions tied to users and questions
+- Per-user statistics and leaderboards
 
-Notes on access rules:
+Requirements
+------------
+- Java 24 (project is configured to use java.version=24 in pom.xml)
+- Maven
+- MySQL running locally (or change datasource to your DB)
 
-- Unauthenticated (public) endpoints: those under `/auth/**` and the root `/` health endpoint.
-- Protected endpoints: `/submission/**`, `/user/**`, `/leaderboard/**`, and most `/questions/**` operations. The `SecurityConfig` enforces these rules and some controller methods add method-level role constraints using `@PreAuthorize`.
+Setup & run
+-----------
+1. Clone the repository.
+2. Create a MySQL database (default name used in `application.properties` is `smart_prep_db`).
+3. Update `src/main/resources/application.properties` with your DB credentials if different.
+4. Build and run with Maven:
 
-Endpoints
----------
+```powershell
+mvnw.cmd clean package
+mvnw.cmd spring-boot:run
+```
+
+The app runs on port defined in `application.properties` (default is 8181). So the base URL is:
+
+- http://localhost:8181
+
+Database
+--------
+Default settings (see `application.properties`):
+
+- URL: jdbc:mysql://localhost:3306/smart_prep_db
+- username: root
+- password: 7070
+- Hibernate ddl-auto: update (will update schema automatically)
+
+Authentication
+--------------
+The app uses JWT tokens. Workflow:
+
+1. Register a user with POST /auth/register. New users are created with role ROLE_USER by default.
+2. Login with POST /auth/login (email and password). The response is a JWT token string.
+3. Send protected requests with header:
+
+   Authorization: Bearer <token>
+
+Security rules (from `Configuration/SecurityConfig.java`)
+
+- /auth/** — public
+- /submission/**, /user/**, /leaderboard/** — require ROLE_USER or ROLE_ADMIN
+- Some question operations use method-level `@PreAuthorize`:
+  - POST /questions/add, PUT /questions/question/{id}, DELETE /questions/question/{id} — ADMIN only
+  - Question read/search endpoints — USER or ADMIN
+
+API Endpoints (summary)
+------------------------
+Base URL: http://localhost:8181
 
 General
-- GET /               -> Public
-  - Returns a simple health/message: "Smart Interview Prep Platform is running!"
+- GET  / — Public — Health/status string
 
-Authentication (Public)
-- POST /auth/register -> Public
-  - Register a new user. Request body: User JSON.
+Authentication (public)
+- POST /auth/register — Register a new user (User JSON)
+- POST /auth/login — Login (User JSON with email, password). Returns JWT token.
 
-- POST /auth/login -> Public
-  - Login with email & password. Request body: User JSON (email, password).
-  - Response: JWT token string.
-
-User
-- POST /user/users -> Protected (hasAnyRole('USER','ADMIN'))
-  - Returns a `User` by email (expects `{ "email": "..." }` in the request body).
-
-- GET /user/all -> Protected (hasAnyRole('USER','ADMIN'))
-  - Returns list of all users.
-
-- GET /user/id/{id} -> Protected (hasAnyRole('USER','ADMIN'))
-  - Get a user by ID.
-
-- GET /user/email/{email} -> Protected (hasAnyRole('USER','ADMIN'))
-  - Get a user by email.
+Users
+- POST /user/users — Protected (USER|ADMIN) — body: { "email": "..." }
+- GET  /user/all — Protected (USER|ADMIN)
+- GET  /user/id/{id} — Protected (USER|ADMIN)
+- GET  /user/email/{email} — Protected (USER|ADMIN)
 
 Questions
-- POST /questions/add -> Protected, role=ADMIN
-  - Create a new question. Request body: Question JSON.
-
-- GET /questions/all -> Protected (hasAnyRole('USER','ADMIN'))
-  - Get all questions.
-
-- GET /questions/question/{id} -> Protected (hasAnyRole('USER','ADMIN'))
-  - Get a question by ID.
-
-- PUT /questions/question/{id} -> Protected, role=ADMIN
-  - Update a question by ID.
-
-- DELETE /questions/question/{id} -> Protected, role=ADMIN
-  - Delete a question by ID.
-
-- GET /questions/search?keyword={keyword} -> Protected (hasAnyRole('USER','ADMIN'))
-  - Search questions by keyword.
-
-- GET /questions/searchByTag?tag={tag} -> Protected (hasAnyRole('USER','ADMIN'))
-  - Search questions by tag.
+- POST /questions/add — ADMIN only
+- GET  /questions/all — Protected (USER|ADMIN)
+- GET  /questions/question/{id} — Protected (USER|ADMIN)
+- PUT  /questions/question/{id} — ADMIN only
+- DELETE /questions/question/{id} — ADMIN only
+- GET  /questions/search?keyword={keyword} — Protected (USER|ADMIN)
+- GET  /questions/searchByTag?tag={tag} — Protected (USER|ADMIN)
 
 Code Submissions
-- POST /submission/submit -> Protected (hasAnyRole('USER','ADMIN'))
-  - Submit code. Request body: CodeSubmission JSON.
+- POST /submission/submit — Protected (USER|ADMIN)
+- GET  /submission/user/{userId} — Protected (USER|ADMIN)
+- GET  /submission/question/{questionId} — Protected (USER|ADMIN)
+- GET  /submission/submission/{submissionId} — Protected (USER|ADMIN)
+- PUT  /submission/{submissionId} — Protected (USER|ADMIN)
+- DELETE /submission/{submissionId} — Protected (USER|ADMIN)
 
-- GET /submission/user/{userId} -> Protected (hasAnyRole('USER','ADMIN'))
-  - Get all submissions by a user.
-
-- GET /submission/question/{questionId} -> Protected (hasAnyRole('USER','ADMIN'))
-  - Get all submissions for a question.
-
-- GET /submission/submission/{submissionId} -> Protected (hasAnyRole('USER','ADMIN'))
-  - Get a submission by ID.
-
-- PUT /submission/{submissionId} -> Protected (hasAnyRole('USER','ADMIN'))
-  - Update a submission by ID. Request body: CodeSubmission JSON.
-
-- DELETE /submission/{submissionId} -> Protected (hasAnyRole('USER','ADMIN'))
-  - Delete a submission by ID.
-
-Leaderboard / User Stats
-- GET /leaderboard/{leaderBoardType} -> Protected (hasAnyRole('USER','ADMIN'))
-  - Gets leaderboard data. `leaderBoardType` is a path variable determining the metric.
-
-Access summary from `SecurityConfig` and controllers
-
-- /auth/** -> permitAll (public)
-- /submission/** -> hasAnyRole('USER','ADMIN')
-- /user/** -> hasAnyRole('USER','ADMIN')
-- /leaderboard/** -> hasAnyRole('USER','ADMIN')
-- Any other request -> authenticated
-
-Role-specific method-level guards (in controllers)
-
-- Question creation, update, delete operations require ADMIN via `@PreAuthorize("hasRole('ADMIN')")`.
-- Question read/search endpoints require USER or ADMIN.
-
-If you want, I can also:
-
-- Add example curl / PowerShell commands for each endpoint including an example login flow to obtain a token.
-- Generate a small OpenAPI spec or Postman collection from these routes.
-
----
-Generated by scanning controller and security configuration source files in this repository.
+Leaderboard
+- GET /leaderboard/{leaderBoardType} — Protected (USER|ADMIN)
 
 Endpoint Quick List (compact)
 -----------------------------
@@ -139,3 +143,33 @@ Endpoint Quick List (compact)
 
 - GET  /leaderboard/{leaderBoardType}      -> Protected (USER|ADMIN)
 
+Project structure (important folders)
+- src/main/java/com/smartprep/smart_interview_platform/
+  - Controller/      (REST controllers)
+  - Service/         (business logic)
+  - Repository/      (Spring Data JPA interfaces)
+  - Model/           (JPA entities)
+  - Configuration/   (Security, Swagger, app beans)
+  - Security/        (JWT utility & filter)
+
+Notes & caveats
+----------------
+- Method-level `@PreAuthorize` checks are used in controllers. Ensure method security is enabled if you rely on those annotations (this project uses path-based rules in `SecurityConfig` and also registers `JwtAuthenticationFilter`). If you need, I can enable method security explicitly.
+- Passwords are stored encoded using BCrypt via `PasswordEncoder` bean.
+- The JWT secret is hard-coded in `JwtUtil` (for development). For production, move it to secure config (environment variables or a secrets manager).
+- The application currently uses `spring.jpa.hibernate.ddl-auto=update`. Consider using migrations (Flyway/Liquibase) for production.
+
+Contributing
+------------
+- Fork, create a feature branch, run tests and open a PR. Add tests for new behavior.
+
+License
+-------
+This project does not declare a license in `pom.xml`. Add a LICENSE file if you plan to make it public.
+
+---
+Generated by scanning the project source. If you'd like I can:
+
+- add example PowerShell commands demonstrating login + protected request
+- create a Postman collection or OpenAPI YAML
+- enable method security or tighten security defaults
