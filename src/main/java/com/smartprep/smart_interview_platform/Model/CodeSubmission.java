@@ -1,5 +1,6 @@
 package com.smartprep.smart_interview_platform.Model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -86,10 +87,12 @@ public class CodeSubmission {
     }
 
     @ManyToOne
+    @JsonIgnore
     @JoinColumn(name = "user_id")
     private User user;
 
     @ManyToOne
+    @JsonIgnore
     @JoinColumn(name = "question_id", nullable = false)
     private Question question;
 
